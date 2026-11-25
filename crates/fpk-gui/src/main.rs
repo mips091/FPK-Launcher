@@ -3,11 +3,11 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 
 const DEFAULT_VERSION: &str = "26.3";
-const BG: egui::Color32 = egui::Color32::from_rgb(10, 12, 13);
-const PANEL: egui::Color32 = egui::Color32::from_rgb(19, 22, 23);
-const PANEL_2: egui::Color32 = egui::Color32::from_rgb(25, 29, 30);
-const GREEN: egui::Color32 = egui::Color32::from_rgb(0, 238, 145);
-const MUTED: egui::Color32 = egui::Color32::from_rgb(145, 154, 153);
+const BG: egui::Color32 = egui::Color32::from_rgb(18, 20, 25);
+const PANEL: egui::Color32 = egui::Color32::from_rgb(27, 30, 37);
+const PANEL_2: egui::Color32 = egui::Color32::from_rgb(36, 40, 48);
+const GREEN: egui::Color32 = egui::Color32::from_rgb(231, 171, 83);
+const MUTED: egui::Color32 = egui::Color32::from_rgb(158, 164, 176);
 
 enum TaskMessage { Status(String), Finished(Result<(), String>) }
 
@@ -89,48 +89,58 @@ impl FpkApp {
     }
 
     fn draw_sidebar(&mut self, ctx: &egui::Context) {
-        egui::SidePanel::left("sidebar").exact_width(68.0).resizable(false).show(ctx, |ui| {
-            ui.add_space(15.0);
-            ui.vertical_centered(|ui| {
-                ui.label(egui::RichText::new("◉").size(28.0).color(GREEN).strong());
-                ui.add_space(25.0);
-                for (i, icon) in ["⌂", "◎", "◉", "▤", "♧"].iter().enumerate() {
-                    let selected = self.selected_page == i;
-                    let fill = if selected { egui::Color32::from_rgb(13, 61, 47) } else { PANEL };
-                    let color = if selected { GREEN } else { MUTED };
-                    let response = ui.add_sized([42.0, 42.0], egui::Button::new(egui::RichText::new(*icon).size(23.0).color(color)).fill(fill).stroke(egui::Stroke::NONE));
-                    if response.clicked() { self.selected_page = i; }
-                    ui.add_space(8.0);
-                }
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-                    if ui.add_sized([42.0, 42.0], egui::Button::new(egui::RichText::new("⚙").size(21.0).color(MUTED)).fill(PANEL)).clicked() {
-                        self.selected_page = 4;
-                    }
-                    ui.add_space(10.0);
-                    ui.label(egui::RichText::new("FPK").size(12.0).strong().color(GREEN));
-                    ui.add_space(12.0);
+        egui::SidePanel::left("sidebar").exact_width(184.0).resizable(false).show(ctx, |ui| {
+            ui.add_space(22.0);
+            ui.horizontal(|ui| {
+                ui.add_space(17.0);
+                ui.label(egui::RichText::new("◈").size(27.0).strong().color(GREEN));
+                ui.vertical(|ui| {
+                    ui.label(egui::RichText::new("FPK").size(20.0).strong().color(egui::Color32::WHITE));
+                    ui.label(egui::RichText::new("MINECRAFT").size(9.0).strong().color(MUTED));
                 });
+            });
+            ui.add_space(30.0);
+            for (i, (icon, label)) in [("⌂", "Library"), ("◇", "Discover"), ("▦", "Instances"), ("↓", "Downloads"), ("⚙", "Settings")].iter().enumerate() {
+                let page = if i == 4 { 4 } else { i };
+                let selected = self.selected_page == page;
+                let fill = if selected { egui::Color32::from_rgb(54, 43, 30) } else { BG };
+                let color = if selected { GREEN } else { MUTED };
+                ui.horizontal(|ui| {
+                    ui.add_space(12.0);
+                    let response = ui.add_sized([158.0, 43.0], egui::Button::new(
+                        egui::RichText::new(format!("  {}    {}", icon, label)).size(14.0).color(color)
+                    ).fill(fill).stroke(egui::Stroke::NONE));
+                    if response.clicked() { self.selected_page = page; }
+                });
+                ui.add_space(5.0);
+            }
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+                ui.add_space(18.0);
+                ui.horizontal(|ui| {
+                    ui.add_space(18.0);
+                    ui.label(egui::RichText::new("FPK  •  0.1.0").size(11.0).color(MUTED));
+                });
+                ui.add_space(14.0);
             });
         });
     }
 
     fn draw_header(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("header").exact_height(68.0).show(ctx, |ui| {
+        egui::TopBottomPanel::top("header").exact_height(66.0).show(ctx, |ui| {
             ui.horizontal_centered(|ui| {
-                ui.add_space(16.0);
+                ui.add_space(24.0);
                 ui.vertical(|ui| {
-                    ui.label(egui::RichText::new(match self.selected_page { 0 => "Library", 1 => "Discover", 2 => "Instances", 3 => "Downloads", _ => "Settings" }).size(23.0).strong().color(egui::Color32::WHITE));
-                    ui.label(egui::RichText::new("1 instance").size(11.0).color(MUTED));
+                    ui.label(egui::RichText::new(match self.selected_page { 0 => "Your library", 1 => "Discover", 2 => "Instances", 3 => "Downloads", _ => "Preferences" }).size(21.0).strong().color(egui::Color32::WHITE));
+                    ui.label(egui::RichText::new("Minecraft Java Edition  •  Offline profile").size(11.0).color(MUTED));
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(14.0);
-                    if Self::accent_button(ui, "+  New Instance", [132.0, 38.0].into()).clicked() {
-                        self.status = "New instance setup: choose a Minecraft version, then Install / Repair.".into();
+                    ui.add_space(18.0);
+                    if Self::accent_button(ui, "+  Create instance", [154.0, 38.0].into()).clicked() {
+                        self.selected_page = 4;
+                        self.status = "Set the instance name and version, then use Install / Repair.".into();
                     }
-                    let _ = ui.add_sized([38.0, 38.0], egui::Button::new("♧").fill(PANEL_2));
-                    let _ = ui.add_sized([38.0, 38.0], egui::Button::new("↻").fill(PANEL_2));
-                    ui.add_sized([220.0, 38.0], egui::TextEdit::singleline(&mut self.search).hint_text("⌕  Search instances..."));
-                    ui.add_space(8.0);
+                    ui.add_sized([230.0, 38.0], egui::TextEdit::singleline(&mut self.search).hint_text("Search your instances"));
+                    ui.add_space(10.0);
                 });
             });
         });
@@ -138,97 +148,77 @@ impl FpkApp {
 
     fn draw_hero(&mut self, ui: &mut egui::Ui) {
         let available = ui.available_width();
-        let (rect, _) = ui.allocate_exact_size(egui::vec2(available, 258.0), egui::Sense::hover());
+        let (rect, _) = ui.allocate_exact_size(egui::vec2(available, 202.0), egui::Sense::hover());
         let painter = ui.painter();
-        painter.rect_filled(rect, 18.0, egui::Color32::from_rgb(58, 47, 27));
-        painter.rect_filled(egui::Rect::from_min_max(rect.left_top(), egui::pos2(rect.right(), rect.top() + 150.0)), 18.0, egui::Color32::from_rgb(93, 75, 43));
-        let horizon = rect.top() + 166.0;
-        painter.circle_filled(egui::pos2(rect.right() - 150.0, rect.top() + 85.0), 27.0, egui::Color32::from_rgb(230, 205, 139));
-        let mountains = [
-            vec![egui::pos2(rect.left() + available * 0.32, horizon), egui::pos2(rect.left() + available * 0.48, rect.top() + 62.0), egui::pos2(rect.left() + available * 0.62, horizon)],
-            vec![egui::pos2(rect.left() + available * 0.53, horizon), egui::pos2(rect.left() + available * 0.70, rect.top() + 42.0), egui::pos2(rect.left() + available * 0.86, horizon)],
-            vec![egui::pos2(rect.left() + available * 0.05, horizon), egui::pos2(rect.left() + available * 0.20, rect.top() + 105.0), egui::pos2(rect.left() + available * 0.36, horizon)],
+        painter.rect_filled(rect, 16.0, egui::Color32::from_rgb(48, 43, 37));
+        painter.rect_filled(egui::Rect::from_min_max(rect.left_top(), egui::pos2(rect.right(), rect.top() + 120.0)), 16.0, egui::Color32::from_rgb(75, 62, 47));
+        let horizon = rect.top() + 135.0;
+        painter.circle_filled(egui::pos2(rect.right() - 112.0, rect.top() + 62.0), 23.0, egui::Color32::from_rgb(220, 178, 108));
+        let peaks = vec![
+            egui::pos2(rect.left() + available * 0.48, horizon),
+            egui::pos2(rect.left() + available * 0.65, rect.top() + 38.0),
+            egui::pos2(rect.left() + available * 0.82, horizon),
+            egui::pos2(rect.left() + available * 0.94, rect.top() + 76.0),
+            rect.right_bottom(),
+            egui::pos2(rect.left(), rect.bottom()),
         ];
-        for points in mountains { painter.add(egui::Shape::convex_polygon(points, egui::Color32::from_rgb(38, 33, 25), egui::Stroke::NONE)); }
-        painter.rect_filled(egui::Rect::from_min_max(egui::pos2(rect.left(), horizon), rect.right_bottom()), 0.0, egui::Color32::from_rgb(28, 27, 22));
-        painter.rect_filled(rect, 18.0, egui::Color32::from_rgba_unmultiplied(5, 8, 8, 70));
-
-        let content = rect.shrink(26.0);
+        painter.add(egui::Shape::convex_polygon(peaks, egui::Color32::from_rgb(35, 34, 33), egui::Stroke::NONE));
+        painter.rect_filled(rect, 16.0, egui::Color32::from_rgba_unmultiplied(10, 12, 16, 48));
+        let content = rect.shrink(24.0);
         ui.allocate_ui_at_rect(content, |ui| {
             ui.vertical(|ui| {
+                ui.label(egui::RichText::new("YOUR ACTIVE WORLD  /  JAVA EDITION").size(10.0).strong().color(GREEN));
+                ui.add_space(7.0);
+                ui.label(egui::RichText::new(&self.instance_name).size(32.0).strong().color(egui::Color32::WHITE));
+                ui.label(egui::RichText::new(format!("Vanilla Minecraft  {}", self.version)).size(13.0).color(egui::Color32::from_rgb(225, 222, 216)));
+                ui.add_space(14.0);
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("● NOW PLAYING").size(10.0).strong().color(GREEN));
-                    ui.label(egui::RichText::new(format!("VANILLA  {}", self.version)).size(11.0).strong().color(egui::Color32::from_rgb(216, 190, 255)));
-                    ui.label(egui::RichText::new("JAVA EDITION").size(10.0).color(egui::Color32::WHITE));
-                });
-                ui.add_space(10.0);
-                ui.label(egui::RichText::new(&self.instance_name).size(34.0).strong().color(egui::Color32::WHITE));
-                ui.label(egui::RichText::new("Your next adventure is one click away").size(13.0).color(egui::Color32::from_rgb(225, 222, 210)));
-                ui.add_space(20.0);
-                ui.horizontal(|ui| {
-                    if Self::accent_button(ui, if self.busy { "Starting..." } else { "▶  Play" }, [108.0, 44.0].into()).clicked() { self.start_task(true); }
-                    if ui.add_sized([44.0, 44.0], egui::Button::new("▱").fill(PANEL_2)).clicked() { self.status = "Game directory is managed in the FPK data folder.".into(); }
-                    if ui.add_sized([44.0, 44.0], egui::Button::new("⚙").fill(PANEL_2)).clicked() { self.selected_page = 4; }
-                    if ui.add_sized([44.0, 44.0], egui::Button::new("•••").fill(PANEL_2)).clicked() { self.status = "Instance options are coming soon.".into(); }
+                    if Self::accent_button(ui, if self.busy { "Launching…" } else { "▶  Play" }, [116.0, 40.0].into()).clicked() { self.start_task(true); }
+                    if ui.add_sized([118.0, 40.0], egui::Button::new("⚙  Configure").fill(PANEL_2)).clicked() { self.selected_page = 4; }
                 });
             });
         });
     }
 
     fn draw_home(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(14.0);
-        self.draw_hero(ui);
         ui.add_space(18.0);
+        self.draw_hero(ui);
+        ui.add_space(25.0);
         ui.horizontal(|ui| {
-            for (icon, title, subtitle) in [
-                ("＋", "New Instance", "Create a clean game profile"),
-                ("⇩", "Import", "Import .zip or .mrpack"),
-                ("▤", "Join Server", "Connect to multiplayer"),
-                ("♧", "Co-op Sync", "Play together"),
-            ] {
-                egui::Frame::group(ui.style()).fill(PANEL).stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(43, 48, 48))).show(ui, |ui| {
-                    ui.set_min_width((ui.available_width() - 10.0) / 4.0);
-                    ui.set_min_height(68.0);
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(icon).size(24.0).color(GREEN));
-                        ui.vertical(|ui| {
-                            ui.label(egui::RichText::new(title).strong().color(egui::Color32::WHITE));
-                            ui.label(egui::RichText::new(subtitle).size(10.0).color(MUTED));
-                        });
-                    });
-                });
-            }
-        });
-        ui.add_space(22.0);
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Your Instances").size(19.0).strong().color(egui::Color32::WHITE));
+            ui.label(egui::RichText::new("INSTALLED INSTANCES").size(12.0).strong().color(MUTED));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(egui::RichText::new("▦  GRID     ☷  COMPACT").size(11.0).color(MUTED));
-                ui.label(egui::RichText::new("Recent   Pinned   Modded   Vanilla").size(11.0).color(GREEN));
+                ui.label(egui::RichText::new("1 profile").size(12.0).color(MUTED));
             });
         });
         ui.add_space(10.0);
         if self.search.is_empty() || self.instance_name.to_lowercase().contains(&self.search.to_lowercase()) {
-            egui::Frame::group(ui.style()).fill(PANEL).stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(42, 48, 47))).show(ui, |ui| {
-                ui.set_min_width(260.0);
-                ui.set_max_width(360.0);
-                let (rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 95.0), egui::Sense::hover());
-                ui.painter().rect_filled(rect, 8.0, egui::Color32::from_rgb(76, 62, 38));
-                ui.painter().circle_filled(egui::pos2(rect.right() - 48.0, rect.top() + 30.0), 17.0, egui::Color32::from_rgb(211, 184, 124));
-                ui.painter().add(egui::Shape::convex_polygon(vec![egui::pos2(rect.left(), rect.bottom()), egui::pos2(rect.left()+85.0, rect.top()+15.0), egui::pos2(rect.left()+180.0, rect.bottom())], egui::Color32::from_rgb(38, 35, 28), egui::Stroke::NONE));
+            egui::Frame::group(ui.style()).fill(PANEL).stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(53, 57, 65))).show(ui, |ui| {
+                ui.set_min_height(106.0);
                 ui.horizontal(|ui| {
+                    let (rect, _) = ui.allocate_exact_size(egui::vec2(110.0, 78.0), egui::Sense::hover());
+                    ui.painter().rect_filled(rect, 8.0, egui::Color32::from_rgb(67, 56, 43));
+                    ui.painter().circle_filled(egui::pos2(rect.right() - 25.0, rect.top() + 22.0), 12.0, egui::Color32::from_rgb(220, 178, 108));
+                    ui.painter().add(egui::Shape::convex_polygon(vec![egui::pos2(rect.left(), rect.bottom()), egui::pos2(rect.left()+45.0, rect.top()+25.0), egui::pos2(rect.right(), rect.bottom())], egui::Color32::from_rgb(35, 34, 33), egui::Stroke::NONE));
+                    ui.add_space(8.0);
                     ui.vertical(|ui| {
-                        ui.label(egui::RichText::new(&self.instance_name).strong().color(egui::Color32::WHITE));
-                        ui.label(egui::RichText::new(format!("{}  •  Vanilla", self.version)).size(11.0).color(MUTED));
+                        ui.label(egui::RichText::new(&self.instance_name).size(17.0).strong().color(egui::Color32::WHITE));
+                        ui.label(egui::RichText::new(format!("Minecraft {}  ·  Vanilla", self.version)).size(12.0).color(MUTED));
+                        ui.add_space(8.0);
+                        ui.label(egui::RichText::new("Ready to launch").size(11.0).color(GREEN));
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if Self::accent_button(ui, "▶ Play", [82.0, 34.0].into()).clicked() { self.start_task(true); }
+                        if Self::accent_button(ui, "▶  Play", [96.0, 38.0].into()).clicked() { self.start_task(true); }
                     });
                 });
             });
         } else {
-            ui.label(egui::RichText::new("No matching instances.").color(MUTED));
+            ui.label(egui::RichText::new("No instance matches your search.").color(MUTED));
         }
+        ui.add_space(18.0);
+        ui.horizontal(|ui| {
+            if ui.add_sized([170.0, 42.0], egui::Button::new("＋  Add instance").fill(PANEL_2)).clicked() { self.selected_page = 4; }
+            if ui.add_sized([170.0, 42.0], egui::Button::new("↓  Install / repair").fill(PANEL_2)).clicked() { self.start_task(false); }
+        });
     }
 
     fn draw_settings(&mut self, ui: &mut egui::Ui) {
@@ -263,15 +253,15 @@ impl eframe::App for FpkApp {
         style.visuals.dark_mode = true;
         style.visuals.window_fill = PANEL;
         style.visuals.panel_fill = BG;
-        style.visuals.extreme_bg_color = egui::Color32::from_rgb(8, 10, 10);
+        style.visuals.extreme_bg_color = egui::Color32::from_rgb(14, 16, 20);
         style.visuals.widgets.inactive.bg_fill = PANEL_2;
-        style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(39, 49, 46);
-        style.visuals.selection.bg_fill = egui::Color32::from_rgb(0, 110, 72);
+        style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(57, 51, 43);
+        style.visuals.selection.bg_fill = egui::Color32::from_rgb(125, 86, 39);
         ctx.set_style(style);
 
         self.draw_sidebar(ctx);
         self.draw_header(ctx);
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(BG).inner_margin(egui::Margin::symmetric(24, 8))).show(ctx, |ui| {
+        egui::CentralPanel::default().frame(egui::Frame::new().fill(BG).inner_margin(egui::Margin::symmetric(28, 10))).show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 match self.selected_page {
                     0 => self.draw_home(ui),
