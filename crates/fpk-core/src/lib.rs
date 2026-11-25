@@ -100,7 +100,13 @@ struct LibraryDownloads { artifact: Option<LibraryArtifact> }
 struct LibraryArtifact { path: String, url: String, sha1: Option<String>, size: Option<u64> }
 
 async fn download_checked(url: &str, target: &Path, sha1: Option<&str>, size: Option<u64>) -> Result<()> {
-    if target.exists() { return Ok(()); }
+    if target.exists() {
+        let cached = tokio::fs::read(target).await?;
+        let size_ok = size.map_or(true, |expected| cached.len() as u64 == expected);
+        let hash_ok = sha1.map_or(true, |expected| hex::encode(Sha1::digest(&cached)) == expected.to_ascii_lowercase());
+        if size_ok && hash_ok { return Ok(()); }
+        tokio::fs::remove_file(target).await.context("remove invalid cached download")?;
+    }
     let bytes = reqwest::get(url).await?.error_for_status()?.bytes().await?;
     if let Some(expected) = size {
         if bytes.len() as u64 != expected { anyhow::bail!("download size mismatch for {}", target.display()); }
@@ -128,8 +134,6 @@ pub async fn install_runtime_files(version: &str) -> Result<()> {
     let raw = tokio::fs::read(&metadata_path).await
         .with_context(|| format!("missing metadata; run install {version} first"))?;
     let value: serde_json::Value = serde_json::from_slice(&raw)?;
-    let client = reqwest::Client::new();
-
     if let Some(index) = value.get("assetIndex") {
         let index: AssetIndexInfo = serde_json::from_value(index.clone())?;
         let index_path = root.join("assets").join("indexes").join(format!("{}.json", index.id));
@@ -165,6 +169,5 @@ pub async fn install_runtime_files(version: &str) -> Result<()> {
         }
         println!("Libraries ready: {} artifacts", installed);
     }
-    drop(client);
     Ok(())
 }
