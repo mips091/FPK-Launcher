@@ -58,17 +58,21 @@ pub async fn install_client(version: &str) -> Result<PathBuf> {
     let root = game_dir()?;
     let version_dir = root.join("versions").join(version);
     tokio::fs::create_dir_all(&version_dir).await?;
-    let info: VersionInfo = reqwest::get(&entry.url).await?.error_for_status()?.json().await?;
+    let metadata: serde_json::Value = reqwest::get(&entry.url).await?.error_for_status()?.json().await?;
+    let client_info: DownloadInfo = serde_json::from_value(
+        metadata.get("downloads").and_then(|v| v.get("client")).cloned()
+            .context("version metadata has no client download")?
+    )?;
     let json_path = version_dir.join(format!("{version}.json"));
-    tokio::fs::write(&json_path, serde_json::to_vec_pretty(&info)?).await?;
+    tokio::fs::write(&json_path, serde_json::to_vec_pretty(&metadata)?).await?;
     let jar_path = version_dir.join(format!("{version}.jar"));
-    let bytes = reqwest::get(&info.downloads.client.url).await?.error_for_status()?.bytes().await?;
-    if bytes.len() as u64 != info.downloads.client.size {
+    let bytes = reqwest::get(&client_info.url).await?.error_for_status()?.bytes().await?;
+    if bytes.len() as u64 != client_info.size {
         anyhow::bail!("download size mismatch; refusing to keep incomplete JAR");
     }
     let actual_sha1 = hex::encode(Sha1::digest(&bytes));
-    if actual_sha1 != info.downloads.client.sha1.to_ascii_lowercase() {
-        anyhow::bail!("SHA-1 mismatch for downloaded client; expected {}, got {}", info.downloads.client.sha1, actual_sha1);
+    if actual_sha1 != client_info.sha1.to_ascii_lowercase() {
+        anyhow::bail!("SHA-1 mismatch for downloaded client; expected {}, got {}", client_info.sha1, actual_sha1);
     }
     let temp_path = version_dir.join(format!("{version}.jar.part"));
     let mut file = std::fs::File::create(&temp_path)?;
