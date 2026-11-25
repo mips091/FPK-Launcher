@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sha1::{Digest, Sha1};
-use std::{path::{Path, PathBuf}, io::Write};
+use std::{path::{Path, PathBuf}, io::{Read, Write}};
 
 const MANIFEST_URL: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
@@ -97,9 +97,18 @@ struct AssetIndexInfo { id: String, url: String, sha1: String, size: u64 }
 #[derive(Debug, Deserialize)]
 struct AssetObject { hash: String, size: u64 }
 #[derive(Debug, Deserialize)]
-struct LibraryInfo { downloads: Option<LibraryDownloads> }
+struct LibraryInfo {
+    downloads: Option<LibraryDownloads>,
+    natives: Option<std::collections::HashMap<String, String>>,
+    extract: Option<NativeExtract>,
+}
 #[derive(Debug, Deserialize)]
-struct LibraryDownloads { artifact: Option<LibraryArtifact> }
+struct NativeExtract { exclude: Option<Vec<String>> }
+#[derive(Debug, Deserialize)]
+struct LibraryDownloads {
+    artifact: Option<LibraryArtifact>,
+    classifiers: Option<std::collections::HashMap<String, LibraryArtifact>>,
+}
 #[derive(Debug, Deserialize)]
 struct LibraryArtifact { path: String, url: String, sha1: Option<String>, size: Option<u64> }
 
@@ -161,7 +170,8 @@ pub async fn install_runtime_files(version: &str) -> Result<()> {
         let mut installed = 0usize;
         for entry in libraries {
             let library: LibraryInfo = serde_json::from_value(entry.clone())?;
-            if let Some(artifact) = library.downloads.and_then(|d| d.artifact) {
+            let downloads = library.downloads;
+            if let Some(artifact) = downloads.as_ref().and_then(|d| d.artifact.as_ref()) {
                 let relative = Path::new(&artifact.path);
                 if relative.is_absolute() || relative.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
                     anyhow::bail!("unsafe library path in Mojang metadata");
@@ -170,8 +180,48 @@ pub async fn install_runtime_files(version: &str) -> Result<()> {
                 download_checked(&artifact.url, &target, artifact.sha1.as_deref(), artifact.size).await?;
                 installed += 1;
             }
+            if let Some(native_key) = library.natives.as_ref().and_then(|n| n.get("linux")) {
+                let classifier = native_key.replace("${arch}", "64");
+                if let Some(native) = downloads.as_ref().and_then(|d| d.classifiers.as_ref()).and_then(|c| c.get(&classifier)) {
+                    let relative = Path::new(&native.path);
+                    if relative.is_absolute() || relative.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+                        anyhow::bail!("unsafe native library path in Mojang metadata");
+                    }
+                    let archive_path = root.join("libraries").join(relative);
+                    download_checked(&native.url, &archive_path, native.sha1.as_deref(), native.size).await?;
+                    extract_native_archive(&archive_path, &root.join("versions").join(version).join("natives"), library.extract.as_ref())?;
+                    installed += 1;
+                }
+            }
         }
         println!("Libraries ready: {} artifacts", installed);
+    }
+    Ok(())
+}
+
+fn extract_native_archive(archive_path: &Path, destination: &Path, rules: Option<&NativeExtract>) -> Result<()> {
+    let exclusions = rules.and_then(|r| r.exclude.as_ref());
+    let file = std::fs::File::open(archive_path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+    for index in 0..archive.len() {
+        let mut entry = archive.by_index(index)?;
+        let name = entry.name().to_owned();
+        if exclusions.map_or(false, |items| items.iter().any(|prefix| name.starts_with(prefix))) {
+            continue;
+        }
+        let relative = Path::new(&name);
+        if relative.is_absolute() || relative.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+            anyhow::bail!("unsafe path inside native archive: {name}");
+        }
+        let output = destination.join(relative);
+        if entry.is_dir() {
+            std::fs::create_dir_all(&output)?;
+        } else {
+            if let Some(parent) = output.parent() { std::fs::create_dir_all(parent)?; }
+            let mut target = std::fs::File::create(output)?;
+            std::io::copy(&mut entry, &mut target)?;
+            target.sync_all()?;
+        }
     }
     Ok(())
 }
