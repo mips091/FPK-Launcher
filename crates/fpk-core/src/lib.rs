@@ -87,3 +87,84 @@ pub fn ensure_path(path: &Path) -> Result<()> {
     std::fs::create_dir_all(path)?;
     Ok(())
 }
+
+#[derive(Debug, Deserialize)]
+struct AssetIndexInfo { id: String, url: String, sha1: String, size: u64 }
+#[derive(Debug, Deserialize)]
+struct AssetObject { hash: String, size: u64 }
+#[derive(Debug, Deserialize)]
+struct LibraryInfo { downloads: Option<LibraryDownloads> }
+#[derive(Debug, Deserialize)]
+struct LibraryDownloads { artifact: Option<LibraryArtifact> }
+#[derive(Debug, Deserialize)]
+struct LibraryArtifact { path: String, url: String, sha1: Option<String>, size: Option<u64> }
+
+async fn download_checked(url: &str, target: &Path, sha1: Option<&str>, size: Option<u64>) -> Result<()> {
+    if target.exists() { return Ok(()); }
+    let bytes = reqwest::get(url).await?.error_for_status()?.bytes().await?;
+    if let Some(expected) = size {
+        if bytes.len() as u64 != expected { anyhow::bail!("download size mismatch for {}", target.display()); }
+    }
+    if let Some(expected) = sha1 {
+        let actual = hex::encode(Sha1::digest(&bytes));
+        if actual != expected.to_ascii_lowercase() {
+            anyhow::bail!("SHA-1 mismatch for {}", target.display());
+        }
+    }
+    if let Some(parent) = target.parent() { tokio::fs::create_dir_all(parent).await?; }
+    let temporary = target.with_extension("fpk-part");
+    let mut file = std::fs::File::create(&temporary)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    std::fs::rename(temporary, target)?;
+    Ok(())
+}
+
+/// Resolve the asset index, asset objects, and library artifacts listed in Mojang's
+/// version metadata. The launcher deliberately stores them in the standard game layout.
+pub async fn install_runtime_files(version: &str) -> Result<()> {
+    let root = game_dir()?;
+    let metadata_path = root.join("versions").join(version).join(format!("{version}.json"));
+    let raw = tokio::fs::read(&metadata_path).await
+        .with_context(|| format!("missing metadata; run install {version} first"))?;
+    let value: serde_json::Value = serde_json::from_slice(&raw)?;
+    let client = reqwest::Client::new();
+
+    if let Some(index) = value.get("assetIndex") {
+        let index: AssetIndexInfo = serde_json::from_value(index.clone())?;
+        let index_path = root.join("assets").join("indexes").join(format!("{}.json", index.id));
+        download_checked(&index.url, &index_path, Some(&index.sha1), Some(index.size)).await?;
+        let bytes = tokio::fs::read(&index_path).await?;
+        let parsed: serde_json::Value = serde_json::from_slice(&bytes)?;
+        let objects: std::collections::HashMap<String, AssetObject> =
+            serde_json::from_value(parsed.get("objects").cloned().context("asset index has no objects")?)?;
+        let total = objects.len();
+        for (n, object) in objects.values().enumerate() {
+            let relative = format!("{}/{}", &object.hash[..2], object.hash);
+            let target = root.join("assets").join("objects").join(relative);
+            let url = format!("https://resources.download.minecraft.net/{}/{}", &object.hash[..2], object.hash);
+            download_checked(&url, &target, Some(&object.hash), Some(object.size)).await
+                .with_context(|| format!("asset {}/{}", n + 1, total))?;
+        }
+        println!("Assets ready: {} objects", total);
+    }
+
+    if let Some(libraries) = value.get("libraries").and_then(|v| v.as_array()) {
+        let mut installed = 0usize;
+        for entry in libraries {
+            let library: LibraryInfo = serde_json::from_value(entry.clone())?;
+            if let Some(artifact) = library.downloads.and_then(|d| d.artifact) {
+                let relative = Path::new(&artifact.path);
+                if relative.is_absolute() || relative.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+                    anyhow::bail!("unsafe library path in Mojang metadata");
+                }
+                let target = root.join("libraries").join(relative);
+                download_checked(&artifact.url, &target, artifact.sha1.as_deref(), artifact.size).await?;
+                installed += 1;
+            }
+        }
+        println!("Libraries ready: {} artifacts", installed);
+    }
+    drop(client);
+    Ok(())
+}
