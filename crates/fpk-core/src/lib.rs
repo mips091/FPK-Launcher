@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use sha1::{Digest, Sha1};
 use std::{path::{Path, PathBuf}, io::Write};
 
 const MANIFEST_URL: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -65,10 +66,16 @@ pub async fn install_client(version: &str) -> Result<PathBuf> {
     if bytes.len() as u64 != info.downloads.client.size {
         anyhow::bail!("download size mismatch; refusing to keep incomplete JAR");
     }
-    let mut file = std::fs::File::create(&jar_path)?;
+    let actual_sha1 = hex::encode(Sha1::digest(&bytes));
+    if actual_sha1 != info.downloads.client.sha1.to_ascii_lowercase() {
+        anyhow::bail!("SHA-1 mismatch for downloaded client; expected {}, got {}", info.downloads.client.sha1, actual_sha1);
+    }
+    let temp_path = version_dir.join(format!("{version}.jar.part"));
+    let mut file = std::fs::File::create(&temp_path)?;
     file.write_all(&bytes)?;
-    println!("Client downloaded: {}", jar_path.display());
-    println!("SHA-1 expected: {}", info.downloads.client.sha1);
+    file.sync_all()?;
+    std::fs::rename(&temp_path, &jar_path)?;
+    println!("Client downloaded and verified: {}", jar_path.display());
     Ok(jar_path)
 }
 
