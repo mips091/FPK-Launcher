@@ -300,16 +300,19 @@ pub fn launch_game(version: &str, username: &str) -> Result<()> {
     let assets_root = root.join("assets");
     let asset_index = metadata.get("assetIndex").and_then(|v| v.get("id")).and_then(|v| v.as_str()).unwrap_or(version);
     let uuid = uuid::Uuid::new_v4().to_string();
+    let natives_string = natives.to_string_lossy().into_owned();
+    let root_string = root.to_string_lossy().into_owned();
+    let assets_string = assets_root.to_string_lossy().into_owned();
     let replacements = [
-        ("{natives_directory}", natives.to_string_lossy().as_ref()),
+        ("{natives_directory}", natives_string.as_str()),
         ("{launcher_name}", "FPK"),
         ("{launcher_version}", "0.1.0"),
         ("{classpath}", classpath.as_str()),
         ("{classpath_separator}", if cfg!(windows) { ";" } else { ":" }),
         ("{auth_player_name}", username),
         ("{version_name}", version),
-        ("{game_directory}", root.to_string_lossy().as_ref()),
-        ("{assets_root}", assets_root.to_string_lossy().as_ref()),
+        ("{game_directory}", root_string.as_str()),
+        ("{assets_root}", assets_string.as_str()),
         ("{assets_index_name}", asset_index),
         ("{auth_uuid}", uuid.as_str()),
         ("{auth_access_token}", "0"),
