@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sha1::{Digest, Sha1};
-use std::{path::{Path, PathBuf}, io::{Read, Write}};
+use std::{path::{Path, PathBuf}, io::Write};
 
 const MANIFEST_URL: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
