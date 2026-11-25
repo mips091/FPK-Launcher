@@ -1,0 +1,32 @@
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+use fpk_core::{fetch_manifest, game_dir, install_client, list_versions};
+
+#[derive(Parser)]
+#[command(name = "fpk", version, about = "FPK Launcher - Minecraft Java bootstrap tools")]
+struct Cli { #[command(subcommand)] command: Command }
+#[derive(Subcommand)]
+enum Command {
+    /// Show launcher data directory
+    Home,
+    /// List Mojang versions (release, snapshot, or all)
+    List { #[arg(default_value = "release")] kind: String },
+    /// Download a version's metadata and vanilla client JAR
+    Install { version: String },
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    match Cli::parse().command {
+        Command::Home => println!("{}", game_dir()?.display()),
+        Command::List { kind } => {
+            let manifest = fetch_manifest().await?;
+            println!("Latest release: {} | snapshot: {}", manifest.latest.release, manifest.latest.snapshot);
+            for item in list_versions(&manifest, &kind) {
+                println!("{}\t{}", item.kind, item.id);
+            }
+        }
+        Command::Install { version } => { install_client(&version).await?; }
+    }
+    Ok(())
+}
