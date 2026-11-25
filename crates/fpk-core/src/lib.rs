@@ -357,13 +357,34 @@ pub fn launch_game(version: &str, username: &str) -> Result<()> {
     let main_class = metadata.get("mainClass").and_then(|v| v.as_str()).context("version metadata has no mainClass")?;
     let java = java_executable()?;
     println!("Starting Minecraft {version} as offline profile '{username}'");
-    let status = std::process::Command::new(java)
+    let output = std::process::Command::new(&java)
         .args(jvm)
         .arg(main_class)
         .args(game)
         .current_dir(&root)
-        .status()
-        .context("failed to start Java; install a compatible Java runtime and ensure it is on PATH")?;
-    if !status.success() { anyhow::bail!("Minecraft process exited with {status}"); }
+        .output()
+        .with_context(|| format!("failed to start Java at {}; install a compatible Java runtime and ensure it is on PATH", java.display()))?;
+
+    // Preserve the JVM output so launch failures can be diagnosed from the launcher.
+    let log_dir = root.join("logs");
+    std::fs::create_dir_all(&log_dir)?;
+    let log_path = log_dir.join("fpk-launch.log");
+    let mut log = String::new();
+    log.push_str(&format!("FPK launch: Minecraft {version}, username {username}\\n"));
+    log.push_str(&format!("Java executable: {}\\n", java.display()));
+    log.push_str(&format!("Exit status: {}\\n\\n--- stdout ---\\n", output.status));
+    log.push_str(&String::from_utf8_lossy(&output.stdout));
+    log.push_str("\\n--- stderr ---\\n");
+    log.push_str(&String::from_utf8_lossy(&output.stderr));
+    std::fs::write(&log_path, &log).with_context(|| format!("could not write launch log to {}", log_path.display()))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let details = if !stderr.trim().is_empty() { stderr.trim() } else { stdout.trim() };
+        let tail = details.lines().rev().take(35).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\\n");
+        anyhow::bail!("Minecraft process exited with {}.\\nLaunch log: {}\\n{}", output.status, log_path.display(), tail);
+    }
+    println!("Minecraft launch log: {}", log_path.display());
     Ok(())
 }
