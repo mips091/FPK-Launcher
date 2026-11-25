@@ -93,14 +93,14 @@ impl FpkApp {
             ui.add_space(22.0);
             ui.horizontal(|ui| {
                 ui.add_space(17.0);
-                ui.label(egui::RichText::new("◈").size(27.0).strong().color(GREEN));
+                ui.label(egui::RichText::new("F").size(27.0).strong().color(GREEN));
                 ui.vertical(|ui| {
                     ui.label(egui::RichText::new("FPK").size(20.0).strong().color(egui::Color32::WHITE));
                     ui.label(egui::RichText::new("MINECRAFT").size(9.0).strong().color(MUTED));
                 });
             });
             ui.add_space(30.0);
-            for (i, (icon, label)) in [("⌂", "Library"), ("◇", "Discover"), ("▦", "Instances"), ("↓", "Downloads"), ("⚙", "Settings")].iter().enumerate() {
+            for (i, (icon, label)) in [("", "Library"), ("", "Discover"), ("", "Instances"), ("", "Downloads"), ("", "Settings")].iter().enumerate() {
                 let page = if i == 4 { 4 } else { i };
                 let selected = self.selected_page == page;
                 let fill = if selected { egui::Color32::from_rgb(54, 43, 30) } else { BG };
@@ -108,7 +108,7 @@ impl FpkApp {
                 ui.horizontal(|ui| {
                     ui.add_space(12.0);
                     let response = ui.add_sized([158.0, 43.0], egui::Button::new(
-                        egui::RichText::new(format!("  {}    {}", icon, label)).size(14.0).color(color)
+                        egui::RichText::new(format!("{}", label)).size(14.0).color(color)
                     ).fill(fill).stroke(egui::Stroke::NONE));
                     if response.clicked() { self.selected_page = page; }
                 });
@@ -118,7 +118,7 @@ impl FpkApp {
                 ui.add_space(18.0);
                 ui.horizontal(|ui| {
                     ui.add_space(18.0);
-                    ui.label(egui::RichText::new("FPK  •  0.1.0").size(11.0).color(MUTED));
+                    ui.label(egui::RichText::new("FPK  |  0.1.0").size(11.0).color(MUTED));
                 });
                 ui.add_space(14.0);
             });
@@ -131,11 +131,11 @@ impl FpkApp {
                 ui.add_space(24.0);
                 ui.vertical(|ui| {
                     ui.label(egui::RichText::new(match self.selected_page { 0 => "Your library", 1 => "Discover", 2 => "Instances", 3 => "Downloads", _ => "Preferences" }).size(21.0).strong().color(egui::Color32::WHITE));
-                    ui.label(egui::RichText::new("Minecraft Java Edition  •  Offline profile").size(11.0).color(MUTED));
+                    ui.label(egui::RichText::new("Minecraft Java Edition  |  Offline profile").size(11.0).color(MUTED));
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add_space(18.0);
-                    if Self::accent_button(ui, "+  Create instance", [154.0, 38.0].into()).clicked() {
+                    if Self::accent_button(ui, "Create instance", [154.0, 38.0].into()).clicked() {
                         self.selected_page = 4;
                         self.status = "Set the instance name and version, then use Install / Repair.".into();
                     }
@@ -173,8 +173,8 @@ impl FpkApp {
                 ui.label(egui::RichText::new(format!("Vanilla Minecraft  {}", self.version)).size(13.0).color(egui::Color32::from_rgb(225, 222, 216)));
                 ui.add_space(14.0);
                 ui.horizontal(|ui| {
-                    if Self::accent_button(ui, if self.busy { "Launching…" } else { "▶  Play" }, [116.0, 40.0].into()).clicked() { self.start_task(true); }
-                    if ui.add_sized([118.0, 40.0], egui::Button::new("⚙  Configure").fill(PANEL_2)).clicked() { self.selected_page = 4; }
+                    if Self::accent_button(ui, if self.busy { "Launching…" } else { "Play" }, [116.0, 40.0].into()).clicked() { self.start_task(true); }
+                    if ui.add_sized([118.0, 40.0], egui::Button::new("Configure").fill(PANEL_2)).clicked() { self.selected_page = 4; }
                 });
             });
         });
@@ -202,7 +202,7 @@ impl FpkApp {
                     ui.add_space(8.0);
                     ui.vertical(|ui| {
                         ui.label(egui::RichText::new(&self.instance_name).size(17.0).strong().color(egui::Color32::WHITE));
-                        ui.label(egui::RichText::new(format!("Minecraft {}  ·  Vanilla", self.version)).size(12.0).color(MUTED));
+                        ui.label(egui::RichText::new(format!("Minecraft {}  |  Vanilla", self.version)).size(12.0).color(MUTED));
                         ui.add_space(8.0);
                         ui.label(egui::RichText::new("Ready to launch").size(11.0).color(GREEN));
                     });
@@ -216,8 +216,8 @@ impl FpkApp {
         }
         ui.add_space(18.0);
         ui.horizontal(|ui| {
-            if ui.add_sized([170.0, 42.0], egui::Button::new("＋  Add instance").fill(PANEL_2)).clicked() { self.selected_page = 4; }
-            if ui.add_sized([170.0, 42.0], egui::Button::new("↓  Install / repair").fill(PANEL_2)).clicked() { self.start_task(false); }
+            if ui.add_sized([170.0, 42.0], egui::Button::new("Add instance").fill(PANEL_2)).clicked() { self.selected_page = 4; }
+            if ui.add_sized([170.0, 42.0], egui::Button::new("Install / repair").fill(PANEL_2)).clicked() { self.start_task(false); }
         });
     }
 
