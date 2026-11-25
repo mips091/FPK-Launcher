@@ -2,8 +2,10 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use fpk_core::{fetch_manifest, game_dir, install_client, list_versions};
 
+const DEFAULT_GAME_VERSION: &str = "26.3";
+
 #[derive(Parser)]
-#[command(name = "fpk", version, about = "FPK Launcher - Minecraft Java bootstrap tools")]
+#[command(name = "fpk", version, about = "FPK Launcher - Minecraft Java 26.3 bootstrap")]
 struct Cli { #[command(subcommand)] command: Command }
 #[derive(Subcommand)]
 enum Command {
@@ -11,8 +13,8 @@ enum Command {
     Home,
     /// List Mojang versions (release, snapshot, or all)
     List { #[arg(default_value = "release")] kind: String },
-    /// Download a version's metadata and vanilla client JAR
-    Install { version: String },
+    /// Download version metadata and vanilla client JAR (defaults to Minecraft Java 26.3)
+    Install { #[arg(default_value = DEFAULT_GAME_VERSION)] version: String },
 }
 
 #[tokio::main]
