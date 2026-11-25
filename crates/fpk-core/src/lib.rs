@@ -370,11 +370,11 @@ pub fn launch_game(version: &str, username: &str) -> Result<()> {
     std::fs::create_dir_all(&log_dir)?;
     let log_path = log_dir.join("fpk-launch.log");
     let mut log = String::new();
-    log.push_str(&format!("FPK launch: Minecraft {version}, username {username}\\n"));
-    log.push_str(&format!("Java executable: {}\\n", java.display()));
-    log.push_str(&format!("Exit status: {}\\n\\n--- stdout ---\\n", output.status));
+    log.push_str(&format!("FPK launch: Minecraft {version}, username {username}\n"));
+    log.push_str(&format!("Java executable: {}\n", java.display()));
+    log.push_str(&format!("Exit status: {}\n\n--- stdout ---\n", output.status));
     log.push_str(&String::from_utf8_lossy(&output.stdout));
-    log.push_str("\\n--- stderr ---\\n");
+    log.push_str("\n--- stderr ---\n");
     log.push_str(&String::from_utf8_lossy(&output.stderr));
     std::fs::write(&log_path, &log).with_context(|| format!("could not write launch log to {}", log_path.display()))?;
 
@@ -382,8 +382,8 @@ pub fn launch_game(version: &str, username: &str) -> Result<()> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
         let details = if !stderr.trim().is_empty() { stderr.trim() } else { stdout.trim() };
-        let tail = details.lines().rev().take(35).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\\n");
-        anyhow::bail!("Minecraft process exited with {}.\\nLaunch log: {}\\n{}", output.status, log_path.display(), tail);
+        let tail = details.lines().rev().take(35).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
+        anyhow::bail!("Minecraft process exited with {}.\nLaunch log: {}\n{}", output.status, log_path.display(), tail);
     }
     println!("Minecraft launch log: {}", log_path.display());
     Ok(())
