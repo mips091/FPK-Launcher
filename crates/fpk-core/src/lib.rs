@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use futures_util::stream::{self, StreamExt, TryStreamExt};
 use serde::Deserialize;
 use sha1::{Digest, Sha1};
 use std::{path::{Path, PathBuf}, io::Write};
@@ -112,7 +113,7 @@ struct LibraryDownloads {
 #[derive(Debug, Deserialize)]
 struct LibraryArtifact { path: String, url: String, sha1: Option<String>, size: Option<u64> }
 
-async fn download_checked(url: &str, target: &Path, sha1: Option<&str>, size: Option<u64>) -> Result<()> {
+async fn download_checked(client: &reqwest::Client, url: &str, target: &Path, sha1: Option<&str>, size: Option<u64>) -> Result<()> {
     if target.exists() {
         let cached = tokio::fs::read(target).await?;
         let size_ok = size.map_or(true, |expected| cached.len() as u64 == expected);
@@ -120,7 +121,7 @@ async fn download_checked(url: &str, target: &Path, sha1: Option<&str>, size: Op
         if size_ok && hash_ok { return Ok(()); }
         tokio::fs::remove_file(target).await.context("remove invalid cached download")?;
     }
-    let bytes = reqwest::get(url).await?.error_for_status()?.bytes().await?;
+    let bytes = client.get(url).send().await?.error_for_status()?.bytes().await?;
     if let Some(expected) = size {
         if bytes.len() as u64 != expected { anyhow::bail!("download size mismatch for {}", target.display()); }
     }
@@ -143,6 +144,10 @@ async fn download_checked(url: &str, target: &Path, sha1: Option<&str>, size: Op
 /// version metadata. The launcher deliberately stores them in the standard game layout.
 pub async fn install_runtime_files(version: &str) -> Result<()> {
     let root = game_dir()?;
+    let client = reqwest::Client::builder()
+        .pool_max_idle_per_host(32)
+        .timeout(std::time::Duration::from_secs(120))
+        .build()?;
     let metadata_path = root.join("versions").join(version).join(format!("{version}.json"));
     let raw = tokio::fs::read(&metadata_path).await
         .with_context(|| format!("missing metadata; run install {version} first"))?;
@@ -150,20 +155,27 @@ pub async fn install_runtime_files(version: &str) -> Result<()> {
     if let Some(index) = value.get("assetIndex") {
         let index: AssetIndexInfo = serde_json::from_value(index.clone())?;
         let index_path = root.join("assets").join("indexes").join(format!("{}.json", index.id));
-        download_checked(&index.url, &index_path, Some(&index.sha1), Some(index.size)).await?;
+        download_checked(&client, &index.url, &index_path, Some(&index.sha1), Some(index.size)).await?;
         let bytes = tokio::fs::read(&index_path).await?;
         let parsed: serde_json::Value = serde_json::from_slice(&bytes)?;
         let objects: std::collections::HashMap<String, AssetObject> =
             serde_json::from_value(parsed.get("objects").cloned().context("asset index has no objects")?)?;
         let total = objects.len();
-        for (n, object) in objects.values().enumerate() {
-            let relative = format!("{}/{}", &object.hash[..2], object.hash);
-            let target = root.join("assets").join("objects").join(relative);
+        let asset_root = root.join("assets").join("objects");
+        let downloads = objects.into_values().map(|object| {
+            let client = client.clone();
+            let target = asset_root.join(format!("{}/{}", &object.hash[..2], object.hash));
             let url = format!("https://resources.download.minecraft.net/{}/{}", &object.hash[..2], object.hash);
-            download_checked(&url, &target, Some(&object.hash), Some(object.size)).await
-                .with_context(|| format!("asset {}/{}", n + 1, total))?;
-        }
-        println!("Assets ready: {} objects", total);
+            async move {
+                download_checked(&client, &url, &target, Some(&object.hash), Some(object.size)).await
+            }
+        });
+        stream::iter(downloads)
+            .buffer_unordered(16)
+            .try_collect::<Vec<_>>()
+            .await
+            .context("one or more asset downloads failed")?;
+        println!("Assets ready: {} objects (up to 16 downloads at once)", total);
     }
 
     if let Some(libraries) = value.get("libraries").and_then(|v| v.as_array()) {
@@ -177,7 +189,7 @@ pub async fn install_runtime_files(version: &str) -> Result<()> {
                     anyhow::bail!("unsafe library path in Mojang metadata");
                 }
                 let target = root.join("libraries").join(relative);
-                download_checked(&artifact.url, &target, artifact.sha1.as_deref(), artifact.size).await?;
+                download_checked(&client, &artifact.url, &target, artifact.sha1.as_deref(), artifact.size).await?;
                 installed += 1;
             }
             if let Some(native_key) = library.natives.as_ref().and_then(|n| n.get("linux")) {
@@ -188,7 +200,7 @@ pub async fn install_runtime_files(version: &str) -> Result<()> {
                         anyhow::bail!("unsafe native library path in Mojang metadata");
                     }
                     let archive_path = root.join("libraries").join(relative);
-                    download_checked(&native.url, &archive_path, native.sha1.as_deref(), native.size).await?;
+                    download_checked(&client, &native.url, &archive_path, native.sha1.as_deref(), native.size).await?;
                     extract_native_archive(&archive_path, &root.join("versions").join(version).join("natives"), library.extract.as_ref())?;
                     installed += 1;
                 }
