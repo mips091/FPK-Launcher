@@ -20,14 +20,14 @@ pub struct VersionEntry {
     pub url: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, serde::Serialize)]
 pub struct VersionInfo {
     pub id: String,
     pub downloads: Downloads,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, serde::Serialize)]
 pub struct Downloads { pub client: DownloadInfo }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, serde::Serialize)]
 pub struct DownloadInfo { pub url: String, pub sha1: String, pub size: u64 }
 
 pub fn game_dir() -> Result<PathBuf> {
@@ -79,7 +79,7 @@ pub async fn install_client(version: &str) -> Result<PathBuf> {
     Ok(jar_path)
 }
 
-pub fn list_versions(manifest: &Manifest, kind: &str) -> Vec<&VersionEntry> {
+pub fn list_versions<'a>(manifest: &'a Manifest, kind: &str) -> Vec<&'a VersionEntry> {
     manifest.versions.iter().filter(|v| kind == "all" || v.kind == kind).collect()
 }
 
