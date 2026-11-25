@@ -346,7 +346,25 @@ pub fn launch_game(version: &str, username: &str) -> Result<()> {
     } else {
         jvm.extend(["-Xmx2G".to_owned(), "-Djava.library.path={natives_directory}".to_owned()]);
     }
-    let jvm: Vec<String> = jvm.into_iter().map(expand).collect();
+    let mut jvm: Vec<String> = jvm.into_iter().map(expand).collect();
+
+    // Mojang metadata normally supplies -cp and {classpath}. Keep a safe
+    // fallback because a metadata rule we do not yet understand must never
+    // cause Java to interpret the Minecraft main class without its client JAR.
+    let classpath_flag = jvm.iter().position(|arg| {
+        arg == "-cp" || arg == "-classpath" || arg == "--class-path"
+    });
+    if let Some(index) = classpath_flag {
+        if index + 1 < jvm.len() {
+            jvm[index + 1] = classpath.clone();
+        } else {
+            jvm.push(classpath.clone());
+        }
+    } else {
+        jvm.push("-cp".to_owned());
+        jvm.push(classpath.clone());
+    }
+
     let mut game = Vec::new();
     if let Some(args) = metadata.get("arguments").and_then(|v| v.get("game")) {
         append_rule_argument(args, &mut game);
