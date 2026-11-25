@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use fpk_core::{fetch_manifest, game_dir, install_client, install_runtime_files, list_versions};
+use fpk_core::{fetch_manifest, game_dir, install_client, install_runtime_files, launch_game, list_versions};
 
 const DEFAULT_GAME_VERSION: &str = "26.3";
 
@@ -13,8 +13,10 @@ enum Command {
     Home,
     /// List Mojang versions (release, snapshot, or all)
     List { #[arg(default_value = "release")] kind: String },
-    /// Download version metadata and vanilla client JAR (defaults to Minecraft Java 26.3)
+    /// Download version metadata, client JAR, libraries, and assets
     Install { #[arg(default_value = DEFAULT_GAME_VERSION)] version: String },
+    /// Launch an installed version with a temporary offline profile
+    Launch { #[arg(default_value = DEFAULT_GAME_VERSION)] version: String, #[arg(long, default_value = "Player")] username: String },
 }
 
 #[tokio::main]
@@ -29,6 +31,7 @@ async fn main() -> Result<()> {
             }
         }
         Command::Install { version } => { install_client(&version).await?; install_runtime_files(&version).await?; }
+        Command::Launch { version, username } => launch_game(&version, &username)?,
     }
     Ok(())
 }
