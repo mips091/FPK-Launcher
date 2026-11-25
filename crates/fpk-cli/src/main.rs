@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use fpk_core::{fetch_manifest, game_dir, install_client, list_versions};
+use fpk_core::{fetch_manifest, game_dir, install_client, install_runtime_files, list_versions};
 
 const DEFAULT_GAME_VERSION: &str = "26.3";
 
@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
                 println!("{}\t{}", item.kind, item.id);
             }
         }
-        Command::Install { version } => { install_client(&version).await?; }
+        Command::Install { version } => { install_client(&version).await?; install_runtime_files(&version).await?; }
     }
     Ok(())
 }
