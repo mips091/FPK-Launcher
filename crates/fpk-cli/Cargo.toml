@@ -1,0 +1,15 @@
+[package]
+name = "fpk-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "fpk"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+fpk-core = { path = "../fpk-core" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
