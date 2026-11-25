@@ -18,7 +18,15 @@ A Minecraft Java Edition launcher prototype built with Rust, targeting **Minecra
 ## Build
 ```sh
 cargo build --release
+cargo build --release -p fpk-gui
 ```
+
+Run the desktop GUI with:
+```sh
+cargo run --release -p fpk-gui
+```
+
+The GUI currently provides version selection, install/repair, and an offline-profile Play action.
 
 ## CLI
 ```sh
@@ -32,4 +40,4 @@ cargo run -p fpk-cli -- install 26.3
 cargo run -p fpk-cli -- launch --username Player
 ```
 
-**Limitations:** Microsoft account authentication and a graphical launcher UI are not implemented yet. The current `launch` command uses an offline profile for local testing; online multiplayer authentication is not provided.
+**Limitations:** Microsoft account authentication Microsoft account authentication is not implemented yet. The current `launch` command uses an offline profile for local testing; online multiplayer authentication is not provided.
