@@ -154,7 +154,7 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([760.0, 560.0])
-            .with_min_inner_size([620.0, 460.0)
+            .with_min_inner_size([620.0, 460.0])
             .with_title("FPK Launcher"),
         ..Default::default()
     };
