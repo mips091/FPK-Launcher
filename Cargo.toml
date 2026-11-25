@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/fpk-core", "crates/fpk-cli"]
+members = ["crates/fpk-core", "crates/fpk-cli", "crates/fpk-gui"]
 
 [workspace.package]
 version = "0.1.0"
