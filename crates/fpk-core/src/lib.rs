@@ -260,12 +260,23 @@ fn collect_jars(directory: &Path, output: &mut Vec<String>) -> Result<()> {
 }
 
 fn rule_matches(rule: &serde_json::Value) -> bool {
-    let os = match rule.get("os") { Some(value) => value, None => return true };
-    if let Some(name) = os.get("name").and_then(|v| v.as_str()) {
-        if name != "linux" { return false; }
+    // This offline launcher does not advertise optional launcher features
+    // (notably Quick Play). Treat every feature as false unless support is
+    // explicitly implemented, so mutually exclusive Quick Play arguments
+    // are never all passed to the game.
+    if let Some(os) = rule.get("os") {
+        if let Some(name) = os.get("name").and_then(|v| v.as_str()) {
+            if name != "linux" { return false; }
+        }
+        if let Some(arch) = os.get("arch").and_then(|v| v.as_str()) {
+            if arch != "x86_64" && arch != "amd64" { return false; }
+        }
     }
-    if let Some(arch) = os.get("arch").and_then(|v| v.as_str()) {
-        if arch != "x86_64" && arch != "amd64" { return false; }
+    if let Some(features) = rule.get("features").and_then(|v| v.as_object()) {
+        for (_feature, required) in features {
+            // No optional launcher feature is currently enabled by FPK.
+            if required.as_bool() != Some(false) { return false; }
+        }
     }
     true
 }
