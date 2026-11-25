@@ -1,0 +1,15 @@
+[package]
+name = "fpk-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "fpk-gui"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+eframe = "0.31"
+fpk-core = { path = "../fpk-core" }
+tokio = { version = "1", features = ["rt-multi-thread"] }
