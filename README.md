@@ -7,6 +7,9 @@ A Minecraft Java Edition launcher prototype built with Rust, targeting **Minecra
 - Lists release and snapshot versions.
 - Downloads version metadata and the vanilla client JAR.
 - Checks the downloaded JAR size and SHA-1 against Mojang's metadata before saving it.
+- Downloads and verifies the asset index and asset objects.
+- Installs library artifacts declared in the version metadata.
+- Revalidates cached assets and libraries before reusing them.
 - Defaults the install command to Minecraft Java 26.3.
 - Uses the platform data directory; set `FPK_HOME` to override it.
 
